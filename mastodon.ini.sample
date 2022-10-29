@@ -1,16 +1,14 @@
-high_water=0
+since_id=0
 
 [imap]
 server=imap.gmail.com
 username=user@example.com
 password=12345
 # can provide a comma separated list of folders so the message will appear under multiple labels
-folder=social,social/Twitter
+folder=social,social/Mastodon
 # the address is used as to and from of the created message, also in the message-id
 address=user@example.com
 
-[twitter]
+[mastodon]
 access_token=
-access_token_secret=
-consumer_key=
-consumer_secret=
+instance=mastodon.example
