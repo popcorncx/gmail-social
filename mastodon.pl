@@ -71,11 +71,12 @@ my @updates = ();
 POST: foreach my $post ( @{$timeline} )
 {
 	my $update = {
-		'id'      => $post->{'id'},
-		'name'    => ( $post->{'account'}->{'display_name'} || $post->{'account'}->{'username'} ),
-		'content' => $post->{'content'},
-		'url'     => $post->{'url'},
-		'time'    => $dtf->parse_datetime( $post->{'created_at'} )->epoch(),
+		'id'          => $post->{'id'},
+		'name'        => ( $post->{'account'}->{'display_name'} || $post->{'account'}->{'username'} ),
+		'content'     => $post->{'content'},
+		'attachments' => $post->{'media_attachments'},
+		'url'         => $post->{'url'},
+		'time'        => $dtf->parse_datetime( $post->{'created_at'} )->epoch(),
 	};
 
 	if ( my $reblog = $post->{'reblog'} )
@@ -103,15 +104,45 @@ my $imap = Mail::IMAPClient->new(
 
 POST: foreach my $update ( sort { $a->{'id'} <=> $b->{'id'} } @updates )
 {
-	my $content = join( q{},
+	my @content = (
 		encode('UTF-8', $update->{'content'}),
 		'<hr />',
-		'<p>URL: <a href="', encode_entities($update->{'url'}), '">',
-			encode_entities($update->{'url'}), '</a></p>',
+	);
+
+	if ( my @attachments = @{ $update->{'attachments'} || [] } )
+	{
+		foreach my $attachment ( @attachments )
+		{
+			if ( $attachment->{'type'} eq 'image' )
+			{
+				push @content, sprintf(
+					'<p><a href="%s"><img src="%s" alt="%s" /></a></p>',
+					encode_entities( $attachment->{'url'} ),
+					encode_entities( $attachment->{'preview_url'} ),
+					encode_entities( $attachment->{'description'} || q{} ),
+				);
+			}
+			else
+			{
+				push @content, sprintf(
+					'<p><a href="%s">%s</a></p>',
+					encode_entities( $attachment->{'url'} ),
+					encode_entities( $attachment->{'description'} || $attachment->{'url'} ),
+				);
+			}
+		}
+
+		push @content, '<hr />';
+	}
+
+	push @content, sprintf(
+		'<p>URL: <a href="%s">%s</a></p>',
+		encode_entities( $update->{'url'} ),
+		encode_entities( $update->{'url'} ),
 	);
 
 	my $message_id = md5_hex(
-		time(), $update->{'time'}, $content, rand(),
+		time(), $update->{'time'}, @content, rand(),
 	) . '.' . $config->{'imap'}->{'address'};
 
 	my $subject = $hs->parse( $update->{'content'} );
@@ -126,7 +157,7 @@ POST: foreach my $update ( sort { $a->{'id'} <=> $b->{'id'} } @updates )
 		'Subject'    => encode('MIME-Header', $subject),
 		'Date'       => Mail::IMAPClient->Rfc822_date( $update->{'time'} ),
 		'Message-Id' => $message_id,
-		'Data'       => [ split "\n", $content ],
+		'Data'       => \@content,
 		'Type'       => 'text/html',
 		'Encoding'   => '-SUGGEST',
 		'Charset'    => 'UTF-8',
