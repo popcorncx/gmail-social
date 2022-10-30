@@ -91,10 +91,16 @@ POST: foreach my $update ( sort { $a->{'id'} <=> $b->{'id'} } @updates )
 		time(), $update->{'time'}, $content, rand(),
 	) . '.' . $config->{'imap'}->{'address'};
 
+	my $subject = $update->{'text'};
+	if ( length($subject) > 72 )
+	{
+		$subject = substr($subject, 0, 72) . '...';
+	}
+
 	my $entity = MIME::Entity->build(
 		'From'       => encode('MIME-Header', $update->{'user'}) . ' <' . $config->{'imap'}->{'address'} . '>',
 		'To'         => $config->{'imap'}->{'address'},
-		'Subject'    => encode('MIME-Header', $update->{'text'}),
+		'Subject'    => encode('MIME-Header', $subject),
 		'Date'       => Mail::IMAPClient->Rfc822_date( $update->{'time'} ),
 		'Message-Id' => $message_id,
 		'Data'       => [ split "\n", $content ],
